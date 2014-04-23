@@ -198,7 +198,7 @@ class SelfSpring extends Dynamic
 
 class Bezier extends Dynamic
   @properties:
-    points: { type: 'points', default: [{"x":0,"y":0,"controlPoints":[{"x":0.2,"y":0}]},{"x":0.574,"y":1.208,"controlPoints":[{"x":0.291,"y":1.199},{"x":0.806,"y":1.19}]},{"x":1,"y":1,"controlPoints":[{"x":0.846,"y":1}]}] }
+    points: { type: 'points', default: [{x:0,y:0,controlPoints:[{x:0.2,y:0}]},{x:0.5,y:1.2,controlPoints:[{x:0.3,y:1.2},{x:0.8,y:1.2}]},{x:1,y:1,controlPoints:[{x:0.8,y:1}]}] }
     duration: { min: 100, max: 4000, default: 1000 }
 
   constructor: (@options = {}) ->
@@ -274,22 +274,8 @@ class EaseInOut extends Dynamic
     super
     friction = @options.friction || EaseInOut.properties.friction.default
     points = [
-      {
-        "x":0,
-        "y":0,
-        "controlPoints":[{
-          "x":1 - (friction / 1000),
-          "y":0
-        }]
-      },
-      {
-        "x":1,
-        "y":1,
-        "controlPoints":[{
-          "x":friction / 1000,
-          "y":1
-        }]
-      }
+      { x:0, y:0, controlPoints:[{ x:1 - (friction / 1000), y:0 }] },
+      { x:1, y:1, controlPoints:[{ x:friction / 1000, y:1 }] }
     ]
     @bezier = new Bezier({
       type: Bezier,
@@ -354,9 +340,8 @@ VectorTools.normalize = (vector) ->
   Vector.create(newElements)
 VectorTools.combine = (a, b, ascl, bscl) ->
   result = []
-  result[0] = (ascl * a.elements[0]) + (bscl * b.elements[0])
-  result[1] = (ascl * a.elements[1]) + (bscl * b.elements[1])
-  result[2] = (ascl * a.elements[2]) + (bscl * b.elements[2])
+  for i in [0..2]
+    result[i] = (ascl * a.elements[i]) + (bscl * b.elements[i])
   return Vector.create(result)
 
 # Matrix tools
@@ -405,9 +390,8 @@ MatrixTools.decompose = (matrix) ->
     perspective = transposedInversePerspectiveMatrix.multiply(rightHandSide).elements
 
     # Clear the perspective partition
-    matrix.elements[0][3] = 0
-    matrix.elements[1][3] = 0
-    matrix.elements[2][3] = 0
+    for i in [0..2]
+      matrix.elements[i][3] = 0
     matrix.elements[3][3] = 1
   else
     # No perspective.
@@ -500,10 +484,7 @@ MatrixTools.decompose = (matrix) ->
     z = 0.25 * s
     w = (row[1].elements[0] - row[0].elements[1]) / s
 
-  quaternion[0] = x
-  quaternion[1] = y
-  quaternion[2] = z
-  quaternion[3] = w
+  quaternion = [x, y, z, w]
 
   for type in [translate, scale, skew, quaternion, perspective, rotate]
     for k, v of type
@@ -537,22 +518,13 @@ MatrixTools.interpolate = (decomposedA, decomposedB, t) ->
   qa = decomposedA.quaternion
   qb = decomposedB.quaternion
 
-  ax = qa[0]
-  ay = qa[1]
-  az = qa[2]
-  aw = qa[3]
-  bx = qb[0]
-  By = qb[1]
-  bz = qb[2]
-  bw = qb[3]
-
-  angle = ax * bx + ay * By + az * bz + aw * bw
+  angle = qa[0] * qb[0] + qa[1] * qb[1] + qa[2] * qb[2] + qa[3] * qb[3]
 
   if angle < 0.0
-    ax = -ax
-    ay = -ay
-    az = -az
-    aw = -aw
+    qa[0] = -qa[0]
+    qa[1] = -qa[1]
+    qa[2] = -qa[2]
+    qa[3] = -qa[3]
     angle = -angle
 
   if angle + 1.0 > .05
@@ -565,22 +537,19 @@ MatrixTools.interpolate = (decomposedA, decomposedB, t) ->
       scale = 1.0 - t
       invscale = t
   else
-    bx = -ay
-    By = ax
-    bz = -aw
-    bw = az
+    qb[0] = -qa[1]
+    qb[1] = qa[0]
+    qb[2] = -qa[3]
+    qb[3] = qa[2]
     scale = Math.sin(piDouble * (.5 - t))
     invscale = Math.sin(piDouble * t)
 
-  cx = ax * scale + bx * invscale
-  cy = ay * scale + By * invscale
-  cz = az * scale + bz * invscale
-  cw = aw * scale + bw * invscale
-
-  decomposed.quaternion[0] = cx
-  decomposed.quaternion[1] = cy
-  decomposed.quaternion[2] = cz
-  decomposed.quaternion[3] = cw
+  decomposed.quaternion = [
+    qa[0] * scale + qb[0] * invscale,
+    qa[1] * scale + qb[1] * invscale,
+    qa[2] * scale + qb[2] * invscale,
+    qa[3] * scale + qb[3] * invscale
+  ]
 
   return decomposed
 
@@ -624,15 +593,19 @@ MatrixTools.recompose = (decomposedMatrix) ->
   # Construct a composite rotation matrix from the quaternion values
   # rotationMatrix is a identity 4x4 matrix initially
   rotationMatrix = Matrix.I(4)
-  rotationMatrix.elements[0][0] = 1 - 2 * (y * y + z * z)
-  rotationMatrix.elements[0][1] = 2 * (x * y - z * w)
-  rotationMatrix.elements[0][2] = 2 * (x * z + y * w)
-  rotationMatrix.elements[1][0] = 2 * (x * y + z * w)
-  rotationMatrix.elements[1][1] = 1 - 2 * (x * x + z * z)
-  rotationMatrix.elements[1][2] = 2 * (y * z - x * w)
-  rotationMatrix.elements[2][0] = 2 * (x * z - y * w)
-  rotationMatrix.elements[2][1] = 2 * (y * z + x * w)
-  rotationMatrix.elements[2][2] = 1 - 2 * (x * x + y * y)
+  rotationMatrix.elements = [[
+    1 - 2 * (y * y + z * z),
+    2 * (x * y - z * w),
+    2 * (x * z + y * w)
+  ], [
+    2 * (x * y + z * w),
+    1 - 2 * (x * x + z * z),
+    2 * (y * z - x * w)
+  ], [
+    2 * (x * z - y * w),
+    2 * (y * z + x * w),
+    1 - 2 * (x * x + y * y)
+  ]]
 
   matrix = matrix.multiply(rotationMatrix)
 

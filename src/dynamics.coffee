@@ -451,7 +451,7 @@ MatrixTools.decompose = (matrix) ->
     rotate[2] = Math.atan2(rowElement(0, 1), rowElement(0, 0))
   else
     rotate[0] = Math.atan2(-rowElement(2, 0), rowElement(1, 1))
-    rotate[1] = 0;
+    rotate[1] = 0
 
   # Now, get the rotations out
   t = rowElement(0, 0) + rowElement(1, 1) + rowElement(2, 2) + 1.0

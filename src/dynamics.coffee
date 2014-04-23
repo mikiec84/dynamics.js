@@ -353,13 +353,15 @@ MatrixTools.decompose = (matrix) ->
   quaternion = []
   perspective = []
 
-  if (matrix.elements[3][3] == 0)
+  els = matrix.elements
+
+  if (els[3][3] == 0)
     return false
 
   # Normalize the matrix.
   for i in [0..3]
     for j in [0..3]
-      matrix.elements[i][j] /= matrix.elements[3][3]
+      els[i][j] /= els[3][3]
 
   # perspectiveMatrix is used to solve for perspective, but it also provides
   # an easy way to test for singularity of the upper 3x3 component.
@@ -374,14 +376,9 @@ MatrixTools.decompose = (matrix) ->
   #   return false
 
   # First, isolate perspective.
-  if matrix.elements[0][3] != 0 || matrix.elements[1][3] != 0 || matrix.elements[2][3] != 0
+  if els[0][3] != 0 || els[1][3] != 0 || els[2][3] != 0
     # rightHandSide is the right hand side of the equation.
-    rightHandSide = Vector.create([
-      matrix.elements[0][3],
-      matrix.elements[1][3],
-      matrix.elements[2][3],
-      matrix.elements[3][3]
-    ])
+    rightHandSide = Vector.create(els[0..3][3])
 
     # Solve the equation by inverting perspectiveMatrix and multiplying
     # rightHandSide by the inverse.
@@ -391,25 +388,21 @@ MatrixTools.decompose = (matrix) ->
 
     # Clear the perspective partition
     for i in [0..2]
-      matrix.elements[i][3] = 0
-    matrix.elements[3][3] = 1
+      els[i][3] = 0
+    els[3][3] = 1
   else
     # No perspective.
     perspective = [0,0,0,1]
 
   # Next take care of translation
   for i in [0..2]
-    translate[i] = matrix.elements[3][i]
-    matrix.elements[3][i] = 0
+    translate[i] = els[3][i]
+    els[3][i] = 0
 
   # Now get scale and shear. 'row' is a 3 element array of 3 component vectors
   row = []
   for i in [0..2]
-    row[i] = Vector.create([
-      matrix.elements[i][0],
-      matrix.elements[i][1],
-      matrix.elements[i][2]
-    ])
+    row[i] = Vector.create(els[i][0..2])
 
   # Compute X scale factor and normalize first row.
   scale[0] = VectorTools.length(row[0])
@@ -443,46 +436,49 @@ MatrixTools.decompose = (matrix) ->
   if row[0].dot(pdum3) < 0
     for i in [0..2]
       scale[i] *= -1
-      row[i].elements[0] *= -1
-      row[i].elements[1] *= -1
-      row[i].elements[2] *= -1
+      for j in [0..2]
+        row[i].elements[j] *= -1
+
+  # Get element at row
+  rowElement = (index, elementIndex) ->
+    row[index].elements[elementIndex]
 
   # Euler angles
   rotate = []
-  rotate[1] = Math.asin(-row[0].elements[2])
+  rotate[1] = Math.asin(-rowElement(0, 2))
   if Math.cos(rotate[1]) != 0
-    rotate[0] = Math.atan2(row[1].elements[2], row[2].elements[2])
-    rotate[2] = Math.atan2(row[0].elements[1], row[0].elements[0])
+    rotate[0] = Math.atan2(rowElement(1, 2), rowElement(2, 2))
+    rotate[2] = Math.atan2(rowElement(0, 1), rowElement(0, 0))
   else
-    rotate[0] = Math.atan2(-row[2].elements[0], row[1].elements[1])
+    rotate[0] = Math.atan2(-rowElement(2, 0), rowElement(1, 1))
     rotate[1] = 0;
 
   # Now, get the rotations out
-  t = row[0].elements[0] + row[1].elements[1] + row[2].elements[2] + 1.0
+  t = rowElement(0, 0) + rowElement(1, 1) + rowElement(2, 2) + 1.0
   if t > 1e-4
     s = 0.5 / Math.sqrt(t)
     w = 0.25 / s
-    x = (row[2].elements[1] - row[1].elements[2]) * s
-    y = (row[0].elements[2] - row[2].elements[0]) * s
-    z = (row[1].elements[0] - row[0].elements[1]) * s
-  else if (row[0].elements[0] > row[1].elements[1]) && (row[0].elements[0] > row[2].elements[2])
-    s = Math.sqrt(1.0 + row[0].elements[0] - row[1].elements[1] - row[2].elements[2]) * 2.0
+    x = (rowElement(2, 1) - rowElement(1, 2)) * s
+    y = (rowElement(0, 2) - rowElement(2, 0)) * s
+    z = (rowElement(1, 0) - rowElement(0, 1)) * s
+  else if (rowElement(0, 0) > rowElement(1, 1)) && (rowElement(0, 0) > rowElement(2, 2))
+    s = Math.sqrt(1.0 + rowElement(0, 0) - rowElement(1, 1) - rowElement(2, 2)) * 2.0
     x = 0.25 * s
-    y = (row[0].elements[1] + row[1].elements[0]) / s
-    z = (row[0].elements[2] + row[2].elements[0]) / s
-    w = (row[2].elements[1] - row[1].elements[2]) / s
-  else if row[1].elements[1] > row[2].elements[2]
-    s = Math.sqrt(1.0 + row[1].elements[1] - row[0].elements[0] - row[2].elements[2]) * 2.0
-    x = (row[0].elements[1] + row[1].elements[0]) / s
+    y = (rowElement(0, 1) + rowElement(1, 0)) / s
+    z = (rowElement(0, 2) + rowElement(2, 0)) / s
+    w = (rowElement(2, 1) - rowElement(1, 2)) / s
+  else if rowElement(1, 1) > rowElement(2, 2)
+    s = Math.sqrt(1.0 + rowElement(1, 1) - rowElement(0, 0) - rowElement(2, 2)) * 2.0
+    x = (rowElement(0, 1) + rowElement(1, 0)) / s
     y = 0.25 * s
-    z = (row[1].elements[2] + row[2].elements[1]) / s
-    w = (row[0].elements[2] - row[2].elements[0]) / s
+    z = (rowElement(1, 2) + rowElement(2, 1)) / s
+    w = (rowElement(0, 2) - rowElement(2, 0)) / s
   else
-    s = Math.sqrt(1.0 + row[2].elements[2] - row[0].elements[0] - row[1].elements[1]) * 2.0
-    x = (row[0].elements[2] + row[2].elements[0]) / s
-    y = (row[1].elements[2] + row[2].elements[1]) / s
+    s = Math.sqrt(1.0 + rowElement(2, 2) - rowElement(0, 0) - rowElement(1, 1)) * 2.0
+    x = (rowElement(0, 2) + rowElement(2, 0)) / s
+    y = (rowElement(1, 2) + rowElement(2, 1)) / s
     z = 0.25 * s
-    w = (row[1].elements[0] - row[0].elements[1]) / s
+    w = (rowElement(1, 0) - rowElement(0, 1)) / s
 
   quaternion = [x, y, z, w]
 
@@ -596,16 +592,19 @@ MatrixTools.recompose = (decomposedMatrix) ->
   rotationMatrix.elements = [[
     1 - 2 * (y * y + z * z),
     2 * (x * y - z * w),
-    2 * (x * z + y * w)
+    2 * (x * z + y * w),
+    0
   ], [
     2 * (x * y + z * w),
     1 - 2 * (x * x + z * z),
-    2 * (y * z - x * w)
+    2 * (y * z - x * w),
+    0
   ], [
     2 * (x * z - y * w),
     2 * (y * z + x * w),
-    1 - 2 * (x * x + y * y)
-  ]]
+    1 - 2 * (x * x + y * y),
+    0
+  ], [ 0, 0, 0, 1 ]]
 
   matrix = matrix.multiply(rotationMatrix)
 

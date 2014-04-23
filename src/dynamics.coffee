@@ -517,10 +517,8 @@ MatrixTools.interpolate = (decomposedA, decomposedB, t) ->
   angle = qa[0] * qb[0] + qa[1] * qb[1] + qa[2] * qb[2] + qa[3] * qb[3]
 
   if angle < 0.0
-    qa[0] = -qa[0]
-    qa[1] = -qa[1]
-    qa[2] = -qa[2]
-    qa[3] = -qa[3]
+    for i in [0..3]
+      qa[i] = -qa[i]
     angle = -angle
 
   if angle + 1.0 > .05
@@ -540,29 +538,20 @@ MatrixTools.interpolate = (decomposedA, decomposedB, t) ->
     scale = Math.sin(piDouble * (.5 - t))
     invscale = Math.sin(piDouble * t)
 
-  decomposed.quaternion = [
-    qa[0] * scale + qb[0] * invscale,
-    qa[1] * scale + qb[1] * invscale,
-    qa[2] * scale + qb[2] * invscale,
-    qa[3] * scale + qb[3] * invscale
-  ]
+  for i in [0..3]
+    decomposed.quaternion[i] = qa[i] * scale + qb[i] * invscale
 
   return decomposed
 
 MatrixTools.recompose = (decomposedMatrix) ->
-  translate = decomposedMatrix.translate
-  scale = decomposedMatrix.scale
-  skew = decomposedMatrix.skew
-  quaternion = decomposedMatrix.quaternion
-  perspective = decomposedMatrix.perspective
-
   matrix = Matrix.I(4)
 
   # apply perspective
   for i in [0..3]
-    matrix.elements[i][3] = perspective[i]
+    matrix.elements[i][3] = decomposedMatrix.perspective[i]
 
   # apply rotation
+  quaternion = decomposedMatrix.quaternion
   x = quaternion[0]
   y = quaternion[1]
   z = quaternion[2]
@@ -570,26 +559,16 @@ MatrixTools.recompose = (decomposedMatrix) ->
 
   # apply skew
   # temp is a identity 4x4 matrix initially
-  if skew[2]
-    temp = Matrix.I(4)
-    temp.elements[2][1] = skew[2]
-    matrix = matrix.multiply(temp)
-
-  if skew[1]
-    temp = Matrix.I(4)
-    temp.elements[2][0] = skew[1]
-    matrix = matrix.multiply(temp)
-
-  if skew[0]
-    temp = Matrix.I(4)
-    temp.elements[1][0] = skew[0]
-    matrix = matrix.multiply(temp)
-
+  skew = decomposedMatrix.skew
+  match = [[1,0],[2,0],[2,1]]
+  for i in [2..0]
+    if skew[i]
+      temp = Matrix.I(4)
+      temp.elements[match[i][0]][match[i][1]] = skew[i]
+      matrix = matrix.multiply(temp)
 
   # Construct a composite rotation matrix from the quaternion values
-  # rotationMatrix is a identity 4x4 matrix initially
-  rotationMatrix = Matrix.I(4)
-  rotationMatrix.elements = [[
+  matrix = matrix.multiply(Matrix.create([[
     1 - 2 * (y * y + z * z),
     2 * (x * y - z * w),
     2 * (x * z + y * w),
@@ -604,18 +583,13 @@ MatrixTools.recompose = (decomposedMatrix) ->
     2 * (y * z + x * w),
     1 - 2 * (x * x + y * y),
     0
-  ], [ 0, 0, 0, 1 ]]
+  ], [ 0, 0, 0, 1 ]]))
 
-  matrix = matrix.multiply(rotationMatrix)
-
-  # apply scale
+  # apply scale and translation
   for i in [0..2]
     for j in [0..2]
-      matrix.elements[i][j] *= scale[i]
-
-  # apply translation
-  for i in [0..2]
-    matrix.elements[3][i] = translate[i]
+      matrix.elements[i][j] *= decomposedMatrix.scale[i]
+    matrix.elements[3][i] = decomposedMatrix.translate[i]
 
   matrix
 

@@ -17,17 +17,14 @@ class Dynamic
     @t += step
     r
 
-  at: (t) =>
+  at: (t) ->
     [t, t]
 
 class Linear extends Dynamic
   @properties:
     duration: { min: 100, max: 4000, default: 1000 }
 
-  init: =>
-    super
-
-  at: (t) =>
+  at: (t) ->
     [t, t]
 
 class Gravity extends Dynamic
@@ -199,7 +196,7 @@ class Bezier extends Dynamic
     @returnsToSelf = @options.points[@options.points.length - 1].y == 0
     super @options
 
-  B_: (t, p0, p1, p2, p3) =>
+  B_: (t, p0, p1, p2, p3) ->
     (Math.pow(1 - t, 3) * p0) + (3 * Math.pow(1 - t, 2) * t * p1) + (3 * (1 - t) * Math.pow(t, 2) * p2) + Math.pow(t, 3) * p3
 
   B: (t, p0, p1, p2, p3) =>

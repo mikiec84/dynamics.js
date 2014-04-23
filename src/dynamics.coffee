@@ -48,9 +48,7 @@ class Gravity extends Dynamic
     Math.round(1000 * 1000 / @options.gravity * @length())
 
   bounceValue: =>
-    bounce = (@options.bounce / 100)
-    bounce = Math.min(bounce, 80)
-    bounce
+    Math.min((@options.bounce / 100), 80)
 
   gravityValue: =>
     @options.gravity / 100
@@ -71,8 +69,7 @@ class Gravity extends Dynamic
   init: =>
     super
     L = @length()
-    gravity = @gravityValue()
-    gravity = gravity * L * L
+    gravity = @gravityValue() * L * L
     bounce = @bounceValue()
 
     b = Math.sqrt(2 / gravity)
@@ -106,10 +103,7 @@ class Gravity extends Dynamic
       break unless curve
 
     if !curve
-      if @initialForce
-        v = 0
-      else
-        v = 1
+      v = if @initialForce then 0 else 1
     else
       v = @curve(curve.a, curve.b, curve.H, t)
 

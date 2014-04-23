@@ -476,11 +476,7 @@ MatrixTools.decompose = (matrix) ->
 
   quaternion = [x, y, z, w]
 
-  for type in [translate, scale, skew, quaternion, perspective, rotate]
-    for k, v of type
-      type[k] = 0 if isNaN(v)
-
-  {
+  result = {
     translate: translate,
     scale: scale,
     skew: skew,
@@ -488,6 +484,12 @@ MatrixTools.decompose = (matrix) ->
     perspective: perspective,
     rotate: rotate
   }
+
+  for typeKey, type of result
+    for k, v of type
+      type[k] = 0 if isNaN(v)
+
+  result
 
 MatrixTools.interpolate = (decomposedA, decomposedB, t) ->
   # New decomposedMatrix

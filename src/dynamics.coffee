@@ -293,54 +293,46 @@ cacheFn = (func) ->
     result
   cachedMethod
 
-class BrowserSupport
-  @transform: ->
-    @withPrefix("transform")
+# Browser Support
+browserSupportTransform = ->
+  browserSupportWithPrefix("transform")
 
-  @keyframes: ->
-    return "-webkit-keyframes" if document.body.style.webkitAnimation != undefined
-    return "-moz-keyframes" if document.body.style.mozAnimation != undefined
-    "keyframes"
-
-  @withPrefix: (property) ->
-    prefix = @prefixFor(property)
-    return "#{prefix}#{property.substring(0, 1).toUpperCase() + property.substring(1)}" if prefix == 'Moz'
-    return "-#{prefix.toLowerCase()}-#{property}" if prefix != ''
-    property
-
-  @prefixFor: cacheFn (property) ->
-    propArray = property.split('-')
-    propertyName = ""
-    for prop in propArray
-      propertyName += prop.substring(0, 1).toUpperCase() + prop.substring(1)
-    for prefix in [ "Webkit", "Moz" ]
-      k = prefix + propertyName
-      if document.body.style[k] != undefined
-        return prefix
-    ''
+browserSupportPrefixFor = cacheFn (property) ->
+  propArray = property.split('-')
+  propertyName = ""
+  for prop in propArray
+    propertyName += prop.substring(0, 1).toUpperCase() + prop.substring(1)
+  for prefix in [ "Webkit", "Moz" ]
+    k = prefix + propertyName
+    if document.body.style[k] != undefined
+      return prefix
+  ''
+browserSupportWithPrefix = (property) ->
+  prefix = browserSupportPrefixFor(property)
+  return "#{prefix}#{property.substring(0, 1).toUpperCase() + property.substring(1)}" if prefix == 'Moz'
+  return "-#{prefix.toLowerCase()}-#{property}" if prefix != ''
+  property
 
 # Additional vector tools
-VectorTools = {}
-VectorTools.length = (vector) ->
+lengthVector = (vector) ->
   a = 0
   for e in vector.elements
     a += Math.pow(e, 2)
   Math.sqrt(a)
-VectorTools.normalize = (vector) ->
-  length = VectorTools.length(vector)
+normalizeVector = (vector) ->
+  length = lengthVector(vector)
   newElements = []
   for i, e of vector.elements
     newElements[i] = e / length
   Vector.create(newElements)
-VectorTools.combine = (a, b, ascl, bscl) ->
+combineVector = (a, b, ascl, bscl) ->
   result = []
   for i in [0..2]
     result[i] = (ascl * a.elements[i]) + (bscl * b.elements[i])
   return Vector.create(result)
 
 # Matrix tools
-MatrixTools = {}
-MatrixTools.decompose = (matrix) ->
+decomposeMatrix = (matrix) ->
   translate = []
   scale = []
   skew = []
@@ -399,27 +391,27 @@ MatrixTools.decompose = (matrix) ->
     row[i] = Vector.create(els[i][0..2])
 
   # Compute X scale factor and normalize first row.
-  scale[0] = VectorTools.length(row[0])
-  row[0] = VectorTools.normalize(row[0])
+  scale[0] = lengthVector(row[0])
+  row[0] = normalizeVector(row[0])
 
   # Compute XY shear factor and make 2nd row orthogonal to 1st.
   skew[0] = row[0].dot(row[1])
-  row[1] = VectorTools.combine(row[1], row[0], 1.0, -skew[0])
+  row[1] = combineVector(row[1], row[0], 1.0, -skew[0])
 
   # Now, compute Y scale and normalize 2nd row.
-  scale[1] = VectorTools.length(row[1])
-  row[1] = VectorTools.normalize(row[1])
+  scale[1] = lengthVector(row[1])
+  row[1] = normalizeVector(row[1])
   skew[0] /= scale[1]
 
   # Compute XZ and YZ shears, orthogonalize 3rd row
   skew[1] = row[0].dot(row[2])
-  row[2] = VectorTools.combine(row[2], row[0], 1.0, -skew[1])
+  row[2] = combineVector(row[2], row[0], 1.0, -skew[1])
   skew[2] = row[1].dot(row[2])
-  row[2] = VectorTools.combine(row[2], row[1], 1.0, -skew[2])
+  row[2] = combineVector(row[2], row[1], 1.0, -skew[2])
 
   # Next, get Z scale and normalize 3rd row.
-  scale[2] = VectorTools.length(row[2])
-  row[2] = VectorTools.normalize(row[2])
+  scale[2] = lengthVector(row[2])
+  row[2] = normalizeVector(row[2])
   skew[1] /= scale[2]
   skew[2] /= scale[2]
 
@@ -491,7 +483,7 @@ MatrixTools.decompose = (matrix) ->
 
   result
 
-MatrixTools.interpolate = (decomposedA, decomposedB, t) ->
+interpolateMatrix = (decomposedA, decomposedB, t) ->
   # New decomposedMatrix
   decomposed = {
     translate: [],
@@ -539,7 +531,7 @@ MatrixTools.interpolate = (decomposedA, decomposedB, t) ->
 
   return decomposed
 
-MatrixTools.recompose = (decomposedMatrix) ->
+recomposeMatrix = (decomposedMatrix) ->
   matrix = Matrix.I(4)
 
   # apply perspective
@@ -589,7 +581,7 @@ MatrixTools.recompose = (decomposedMatrix) ->
 
   matrix
 
-MatrixTools.matrixToString = (matrix) ->
+matrixToString = (matrix) ->
   str = 'matrix3d('
   for i in [0..3]
     for j in [0..3]
@@ -598,14 +590,131 @@ MatrixTools.matrixToString = (matrix) ->
   str += ')'
   str
 
-MatrixTools.transformStringToMatrixString = cacheFn (transform) ->
+transformStringToMatrixString = cacheFn (transform) ->
   matrixEl = document.createElement('div')
-  matrixEl.style[BrowserSupport.transform()] = transform
+  matrixEl.style[browserSupportTransform()] = transform
   document.body.appendChild(matrixEl)
   style = window.getComputedStyle(matrixEl, null)
-  result = style.transform || style[BrowserSupport.transform()]
+  result = style.transform || style[browserSupportTransform()]
   document.body.removeChild(matrixEl)
   result
+
+convertToMatrix3d = (transform) ->
+  match = transform.match /matrix3?d?\(([-0-9, \.]*)\)/
+  if match
+    digits = match[1].split(',')
+    digits = digits.map(parseFloat)
+    if digits.length == 6
+      # format: matrix(a, c, b, d, tx, ty)
+      elements = [digits[0], digits[1], 0, 0, digits[2], digits[3], 0, 0, 0, 0, 1, 0, digits[4], digits[5], 0, 1]
+    else
+      elements = digits
+  else
+    elements = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+
+  matrixElements = []
+  for i in [0..3]
+    matrixElements.push(elements.slice(i * 4,i * 4 + 4))
+  Matrix.create(matrixElements)
+
+# Private Methods
+getFirstFrame = (properties) ->
+  frame = {}
+  style = window.getComputedStyle(@el, null)
+  for k of properties
+    v = @el.style[browserSupportWithPrefix(k)]
+    v = style[browserSupportWithPrefix(k)] unless v
+    frame[k] = v
+  frame
+
+parseFrames = (frames) ->
+  newFrames = {}
+  for percent, properties of frames
+    newProperties = {}
+    for k, v of properties
+      if k != 'transform'
+        vString = v + ""
+        match = vString.match /([-0-9.]*)(.*)/
+        value = parseFloat(match[1])
+        unit = match[2]
+      else
+        value = decomposeMatrix(convertToMatrix3d(transformStringToMatrixString(v)))
+        unit = ''
+      newProperties[k] = {
+        value: value,
+        unit: unit
+      }
+    newFrames[percent] = newProperties
+  newFrames
+
+defaultForProperty = (property) ->
+  return 1 if property == 'opacity'
+  0
+
+animationFrame = (ts) ->
+  return if @stopped
+  t = 0
+  if @ts
+    dTs = ts - @ts
+    t = dTs / @options.duration
+  else
+    @ts = ts
+
+  at = @dynamic().at(t)
+
+  animationFrameApply.call(@, at[1], { progress: t })
+
+  if t < 1
+    requestAnimationFrame animationFrame.bind(@)
+  else
+    @animating = false
+    @dynamic().init()
+    @options.complete?(@)
+
+animationFrameApply = (t, args = {}) ->
+  frame0 = @frames[0]
+  frame1 = @frames[100]
+  progress = args.progress
+  progress ?= -1
+
+  transform = ''
+  properties = {}
+  for k, v of frame1
+    value = v.value
+    unit = v.unit
+
+    newValue = null
+    if progress >= 1
+      if @returnsToSelf
+        newValue = frame0[k].value
+      else
+        newValue = frame1[k].value
+
+    if k == 'transform'
+      newValue ?= interpolateMatrix(frame0[k].value, frame1[k].value, t)
+      matrix = recomposeMatrix(newValue)
+      properties['transform'] = matrixToString(matrix)
+    else
+      unless newValue
+        oldValue = null
+        oldValue = frame0[k].value if frame0[k]
+        oldValue = defaultForProperty(k) unless oldValue?
+        dValue = value - oldValue
+        newValue = oldValue + (dValue * t)
+      properties[k] = newValue
+
+  css(@el, properties)
+
+animationStart = ->
+  unless @options.animated
+    @apply(1, { progress: 1 })
+    return
+
+  @animating = true
+  @ts = null
+  if @stopped
+    @stopped = false
+  requestAnimationFrame animationFrame.bind(@)
 
 Animations = []
 hasCommonProperties = (props1, props2) ->
@@ -628,7 +737,7 @@ css = (el, properties) ->
     unit = ''
     if pxProperties.indexOf(k.toLowerCase()) != -1
       unit = 'px'
-    el.style[BrowserSupport.withPrefix(k)] = "#{v}#{unit}"
+    el.style[browserSupportWithPrefix(k)] = "#{v}#{unit}"
 
 # Public Classes
 class Animation
@@ -639,8 +748,8 @@ class Animation
       @el = @el[0]
     @animating = false
     redraw = @el.offsetHeight # Hack to redraw the element
-    @frames = @parseFrames({
-      0: @getFirstFrame(@to),
+    @frames = parseFrames({
+      0: getFirstFrame.call(@, @to),
       100: @to
     })
     @setOptions(options)
@@ -670,136 +779,17 @@ class Animation
     @_dynamic ?= new @options.type(@options)
     @_dynamic
 
-  convertTransformToMatrix: (transform) =>
-    MatrixTools.transformStringToMatrixString(transform)
-
-  convertToMatrix3d: (transform) =>
-    match = transform.match /matrix3?d?\(([-0-9, \.]*)\)/
-    if match
-      digits = match[1].split(',')
-      digits = digits.map(parseFloat)
-      if digits.length == 6
-        # format: matrix(a, c, b, d, tx, ty)
-        elements = [digits[0], digits[1], 0, 0, digits[2], digits[3], 0, 0, 0, 0, 1, 0, digits[4], digits[5], 0, 1]
-      else
-        elements = digits
-    else
-      elements = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
-
-    matrixElements = []
-    for i in [0..3]
-      matrixElements.push(elements.slice(i * 4,i * 4 + 4))
-    Matrix.create(matrixElements)
-
-  getFirstFrame: (properties) =>
-    frame = {}
-    style = window.getComputedStyle(@el, null)
-    for k of properties
-      v = @el.style[BrowserSupport.withPrefix(k)]
-      v = style[BrowserSupport.withPrefix(k)] unless v
-      frame[k] = v
-    frame
-
-  parseFrames: (frames) =>
-    newFrames = {}
-    for percent, properties of frames
-      newProperties = {}
-      for k, v of properties
-        if k != 'transform'
-          vString = v + ""
-          match = vString.match /([-0-9.]*)(.*)/
-          value = parseFloat(match[1])
-          unit = match[2]
-        else
-          value = MatrixTools.decompose(@convertToMatrix3d(@convertTransformToMatrix(v)))
-          unit = ''
-        newProperties[k] = {
-          value: value,
-          unit: unit
-        }
-      newFrames[percent] = newProperties
-    newFrames
-
-  defaultForProperty: (property) =>
-    return 1 if property == 'opacity'
-    0
-
   start: (options = {}) =>
     options.delay ?= 0
     stopAnimationsForEl(@el, @to)
     if options.delay <= 0
-      @_start()
+      animationStart.call(@)
     else
-      setTimeout @_start, options.delay
-
-  _start: =>
-    unless @options.animated
-      @apply(1, { progress: 1 })
-      return
-
-    @animating = true
-    @ts = null
-    if @stopped
-      @stopped = false
-    requestAnimationFrame @frame
+      setTimeout animationStart.bind(@), options.delay
 
   stop: =>
     @animating = false
     @stopped = true
-
-  frame: (ts) =>
-    return if @stopped
-    t = 0
-    if @ts
-      dTs = ts - @ts
-      t = dTs / @options.duration
-    else
-      @ts = ts
-
-    at = @dynamic().at(t)
-
-    @apply(at[1], { progress: t })
-
-    if t < 1
-      requestAnimationFrame @frame
-    else
-      @animating = false
-      @dynamic().init()
-      @options.complete?(@)
-
-  apply: (t, args = {}) =>
-    frame0 = @frames[0]
-    frame1 = @frames[100]
-    progress = args.progress
-    progress ?= -1
-
-    transform = ''
-    properties = {}
-    for k, v of frame1
-      value = v.value
-      unit = v.unit
-
-      newValue = null
-      if progress >= 1
-        if @returnsToSelf
-          newValue = frame0[k].value
-        else
-          newValue = frame1[k].value
-
-      if k == 'transform'
-        newValue ?= MatrixTools.interpolate(frame0[k].value, frame1[k].value, t)
-        matrix = MatrixTools.recompose(newValue)
-        properties['transform'] = MatrixTools.matrixToString(matrix)
-      else
-        unless newValue
-          oldValue = null
-          oldValue = frame0[k].value if frame0[k]
-          oldValue = @defaultForProperty(k) unless oldValue?
-          dValue = value - oldValue
-          newValue = oldValue + (dValue * t)
-        properties[k] = newValue
-
-    css(@el, properties)
 
 # Export
 Dynamics =

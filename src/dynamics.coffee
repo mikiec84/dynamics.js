@@ -657,7 +657,7 @@ class Animation
     @returnsToSelf = false || @dynamic().returnsToSelf
     @_dynamic = null
 
-    if @options.debugName and Dynamics.Overrides and Dynamics.Overrides.for(@options.debugName)
+    if @options.debugName? and Dynamics.Overrides? and Dynamics.Overrides.for(@options.debugName)
       @options = Dynamics.Overrides.getOverride(@options, @options.debugName)
 
     @dynamic().init()

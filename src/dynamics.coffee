@@ -1,29 +1,29 @@
 # Vector and Matrix extracted from Sylvester.js
 class Vector
-  constructor: (@elements) ->
+  constructor: (@els) ->
 
   # Returns element i of the vector
   e: (i) =>
-    return if (i < 1 || i > this.elements.length) then null else this.elements[i-1]
+    return if (i < 1 || i > this.els.length) then null else this.els[i-1]
 
   # Returns the scalar product of the vector with the argument
   # Both vectors must have equal dimensionality
   dot: (vector) =>
-    V = vector.elements || vector
+    V = vector.els || vector
     product = 0
-    n = this.elements.length
+    n = this.els.length
     return null if n != V.length
     n += 1
     while --n
-      product += this.elements[n-1] * V[n-1]
+      product += this.els[n-1] * V[n-1]
     return product
 
   # Returns the vector product of the vector with the argument
   # Both vectors must have dimensionality 3
   cross: (vector) =>
-    B = vector.elements || vector
-    return null if this.elements.length != 3 || B.length != 3
-    A = this.elements
+    B = vector.els || vector
+    return null if this.els.length != 3 || B.length != 3
+    A = this.els
     return new Vector([
       (A[1] * B[2]) - (A[2] * B[1]),
       (A[2] * B[0]) - (A[0] * B[2]),
@@ -31,16 +31,16 @@ class Vector
     ])
 
 class Matrix
-  constructor: (@elements) ->
+  constructor: (@els) ->
 
   # Returns element (i,j) of the matrix
   e: (i,j) =>
-    return null if (i < 1 || i > this.elements.length || j < 1 || j > this.elements[0].length)
-    this.elements[i-1][j-1]
+    return null if (i < 1 || i > this.els.length || j < 1 || j > this.els[0].length)
+    this.els[i-1][j-1]
 
   # Returns a copy of the matrix
   dup: () =>
-    return new Matrix(this.elements)
+    return new Matrix(this.els)
 
   # Returns the result of multiplying the matrix from the right by the argument.
   # If the argument is a scalar then just multiply all the elements. If the argument is
@@ -48,12 +48,12 @@ class Matrix
   # col(1) on the result.
   multiply: (matrix) =>
     returnVector = if matrix.modulus then true else false
-    M = matrix.elements || matrix
-    M = new Matrix(M).elements if (typeof(M[0][0]) == 'undefined')
-    ni = this.elements.length
+    M = matrix.els || matrix
+    M = new Matrix(M).els if (typeof(M[0][0]) == 'undefined')
+    ni = this.els.length
     ki = ni
     kj = M[0].length
-    cols = this.elements[0].length
+    cols = this.els[0].length
     elements = []
     ni += 1
     while (--ni)
@@ -68,7 +68,7 @@ class Matrix
         nc += 1
         while (--nc)
           c = cols - nc
-          sum += this.elements[i][c] * M[c][j]
+          sum += this.els[i][c] * M[c][j]
         elements[i][j] = sum
 
     M = new Matrix(elements)
@@ -76,8 +76,8 @@ class Matrix
 
   # Returns the transpose of the matrix
   transpose: =>
-    rows = this.elements.length
-    cols = this.elements[0].length
+    rows = this.els.length
+    cols = this.els[0].length
     elements = []
     ni = cols
     ni += 1
@@ -88,7 +88,7 @@ class Matrix
       nj += 1
       while (--nj)
         j = rows - nj
-        elements[i][j] = this.elements[j][i]
+        elements[i][j] = this.els[j][i]
     return new Matrix(elements)
 
   # Make the matrix upper (right) triangular by Gaussian elimination.
@@ -96,25 +96,25 @@ class Matrix
   # scaled up or switched, and the determinant is preserved.
   toRightTriangular: =>
     M = this.dup()
-    n = this.elements.length
+    n = this.els.length
     k = n
-    kp = this.elements[0].length
+    kp = this.els[0].length
     while (--n)
       i = k - n
-      if (M.elements[i][i] == 0)
+      if (M.els[i][i] == 0)
         for j in [i + 1...k]
-          if (M.elements[j][i] != 0)
+          if (M.els[j][i] != 0)
             els = []
             np = kp
             np += 1
             while (--np)
               p = kp - np
-              els.push(M.elements[i][p] + M.elements[j][p])
-            M.elements[i] = els
+              els.push(M.els[i][p] + M.els[j][p])
+            M.els[i] = els
             break
-      if (M.elements[i][i] != 0)
+      if (M.els[i][i] != 0)
         for j in [i + 1...k]
-          multiplier = M.elements[j][i] / M.elements[i][i]
+          multiplier = M.els[j][i] / M.els[i][i]
           els = []
           np = kp
           np += 1
@@ -124,17 +124,17 @@ class Matrix
             # of the row that we're subtracting can safely be set straight to
             # zero, since that's the point of this routine and it avoids having
             # to loop over and correct rounding errors later
-            els.push(if p <= i then 0 else M.elements[j][p] - M.elements[i][p] * multiplier)
-          M.elements[j] = els
+            els.push(if p <= i then 0 else M.els[j][p] - M.els[i][p] * multiplier)
+          M.els[j] = els
     return M
 
   # Returns the result of attaching the given argument to the right-hand side of the matrix
   augment: (matrix) =>
-    M = matrix.elements || matrix
-    M = new Matrix(M).elements if (typeof(M[0][0]) == 'undefined')
+    M = matrix.els || matrix
+    M = new Matrix(M).els if (typeof(M[0][0]) == 'undefined')
     T = this.dup()
-    cols = T.elements[0].length
-    ni = T.elements.length
+    cols = T.els[0].length
+    ni = T.els.length
     ki = ni
     kj = M[0].length
     return null if (ni != M.length)
@@ -145,16 +145,16 @@ class Matrix
       nj += 1
       while (--nj)
         j = kj - nj
-        T.elements[i][cols + j] = M[i][j]
+        T.els[i][cols + j] = M[i][j]
 
     return T
 
   # Returns the inverse (if one exists) using Gauss-Jordan
   inverse: =>
-    vni = this.elements.length
+    vni = this.els.length
     ki = ni
     M = this.augment(Matrix.I(ni)).toRightTriangular()
-    kp = M.elements[0].length
+    kp = M.els[0].length
     inverse_elements = []
     # Matrix is non-singular so there will be no zeros on the diagonal
     # Cycle through rows from last to first
@@ -165,18 +165,18 @@ class Matrix
       els = []
       np = kp
       inverse_elements[i] = []
-      divisor = M.elements[i][i]
+      divisor = M.els[i][i]
       np += 1
       while (--np)
         p = kp - np
-        new_element = M.elements[i][p] / divisor
+        new_element = M.els[i][p] / divisor
         els.push(new_element)
         # Shuffle of the current row of the right hand side into the results
         # array as it will not be modified by later runs through this loop
         if (p >= ki)
           inverse_elements[i].push(new_element)
 
-      M.elements[i] = els
+      M.els[i] = els
       # Then, subtract this row from those above it to
       # give the identity matrix on the left hand side
       for j in [0...i]
@@ -185,8 +185,8 @@ class Matrix
         np += 1
         while (--np)
           p = kp - np
-          els.push(M.elements[j][p] - M.elements[i][p] * M.elements[j][i])
-        M.elements[j] = els
+          els.push(M.els[j][p] - M.els[i][p] * M.els[j][i])
+        M.els[j] = els
 
     return new Matrix(inverse_elements)
 
@@ -520,19 +520,19 @@ browserSupportWithPrefix = (property) ->
 # Additional vector tools
 lengthVector = (vector) ->
   a = 0
-  for e in vector.elements
+  for e in vector.els
     a += Math.pow(e, 2)
   Math.sqrt(a)
 normalizeVector = (vector) ->
   length = lengthVector(vector)
   newElements = []
-  for i, e of vector.elements
+  for i, e of vector.els
     newElements[i] = e / length
   new Vector(newElements)
 combineVector = (a, b, ascl, bscl) ->
   result = []
   for i in [0..2]
-    result[i] = (ascl * a.elements[i]) + (bscl * b.elements[i])
+    result[i] = (ascl * a.els[i]) + (bscl * b.els[i])
   return new Vector(result)
 
 # Matrix tools
@@ -543,7 +543,7 @@ decomposeMatrix = (matrix) ->
   quaternion = []
   perspective = []
 
-  els = matrix.elements
+  els = matrix.els
 
   if (els[3][3] == 0)
     return false
@@ -558,8 +558,8 @@ decomposeMatrix = (matrix) ->
   perspectiveMatrix = matrix.dup()
 
   for i in [0..2]
-    perspectiveMatrix.elements[i][3] = 0
-  perspectiveMatrix.elements[3][3] = 1
+    perspectiveMatrix.els[i][3] = 0
+  perspectiveMatrix.els[3][3] = 1
 
   # Don't do this anymore, it would return false for scale(0)..
   # if perspectiveMatrix.determinant() == 0
@@ -574,7 +574,7 @@ decomposeMatrix = (matrix) ->
     # rightHandSide by the inverse.
     inversePerspectiveMatrix = perspectiveMatrix.inverse()
     transposedInversePerspectiveMatrix = inversePerspectiveMatrix.transpose()
-    perspective = transposedInversePerspectiveMatrix.multiply(rightHandSide).elements
+    perspective = transposedInversePerspectiveMatrix.multiply(rightHandSide).els
 
     # Clear the perspective partition
     for i in [0..2]
@@ -627,11 +627,11 @@ decomposeMatrix = (matrix) ->
     for i in [0..2]
       scale[i] *= -1
       for j in [0..2]
-        row[i].elements[j] *= -1
+        row[i].els[j] *= -1
 
   # Get element at row
   rowElement = (index, elementIndex) ->
-    row[index].elements[elementIndex]
+    row[index].els[elementIndex]
 
   # Euler angles
   rotate = []
@@ -740,7 +740,7 @@ recomposeMatrix = (decomposedMatrix) ->
 
   # apply perspective
   for i in [0..3]
-    matrix.elements[i][3] = decomposedMatrix.perspective[i]
+    matrix.els[i][3] = decomposedMatrix.perspective[i]
 
   # apply rotation
   quaternion = decomposedMatrix.quaternion
@@ -756,7 +756,7 @@ recomposeMatrix = (decomposedMatrix) ->
   for i in [2..0]
     if skew[i]
       temp = Matrix.I(4)
-      temp.elements[match[i][0]][match[i][1]] = skew[i]
+      temp.els[match[i][0]][match[i][1]] = skew[i]
       matrix = matrix.multiply(temp)
 
   # Construct a composite rotation matrix from the quaternion values
@@ -780,8 +780,8 @@ recomposeMatrix = (decomposedMatrix) ->
   # apply scale and translation
   for i in [0..2]
     for j in [0..2]
-      matrix.elements[i][j] *= decomposedMatrix.scale[i]
-    matrix.elements[3][i] = decomposedMatrix.translate[i]
+      matrix.els[i][j] *= decomposedMatrix.scale[i]
+    matrix.els[3][i] = decomposedMatrix.translate[i]
 
   matrix
 
@@ -789,7 +789,7 @@ matrixToString = (matrix) ->
   str = 'matrix3d('
   for i in [0..3]
     for j in [0..3]
-      str += matrix.elements[i][j]
+      str += matrix.els[i][j]
       str += ',' unless i == 3 and j == 3
   str += ')'
   str

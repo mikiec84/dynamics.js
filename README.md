@@ -4,10 +4,9 @@ Dynamics.js is a Javascript library to create physics-related CSS animations
 To see some demos, checkout [Dynamics.js's website](http://michaelvillar.github.io/dynamics.js).
 
 ## Usage
-Dynamics depends on [Sylvester](https://github.com/jcoglan/sylvester). You'll then include `dynamics.js`.
+Include `dynamics.js` into your page.
 ```
-<script src="lib/sylvester.js" type="text/javascript"></script>  
-<script src="lib/dynamics.js" type="text/javascript"></script>  
+<script src="lib/dynamics.js" type="text/javascript"></script>
 ```
 Create a `Dynamics.Animation` to animate properties of an element.
 ```
@@ -21,7 +20,7 @@ var animation = new Dynamics.Animation(element, properties, options);
   - `duration` is in milliseconds
   - `complete` (optional) is the completion callback
   - `animated` (optional) default is true
-  - `debugName` (optional) is used to debug your curve using the curve creator 
+  - `debugName` (optional) is used to debug your curve using the curve creator
 
 You can then start the animation:
 ```
@@ -54,7 +53,7 @@ Dynamics.css(element, {
 ### Using the curve creator in your app
 You need to include `debug.js` in development.
 ```
-<script src="lib/debug.js" type="text/javascript"></script>  
+<script src="lib/debug.js" type="text/javascript"></script>
 ```
 Then, you can just pass the property `debugName` to your animation properties.
 ```
@@ -72,7 +71,7 @@ When the animation is started, the curve creator will open allowing you to test 
 - `anticipationStrength` (optional)
 - `anticipationSize` (optional)
 - `duration`: default is 1000
-    
+
 ### Dynamics.Type.SelfSpring
 - `frequency`: default is 15
 - `friction`: default is 200
@@ -130,6 +129,10 @@ Tested on
 
 Broken on
 - IE9 and below
+
+## Sylvester
+
+(Write something about the use of sylvester, check sylvester licence!)
 
 ## License
 

@@ -1,3 +1,228 @@
+# Vector and Matrix extracted from Sylvester.js
+class Vector
+  # Returns element i of the vector
+  e: (i) =>
+    return if (i < 1 || i > this.elements.length) then null else this.elements[i-1]
+
+  # Returns the scalar product of the vector with the argument
+  # Both vectors must have equal dimensionality
+  dot: (vector) =>
+    V = vector.elements || vector
+    product = 0
+    n = this.elements.length
+    return null if n != V.length
+    n += 1
+    while --n
+      product += this.elements[n-1] * V[n-1]
+    return product
+
+  # Returns the vector product of the vector with the argument
+  # Both vectors must have dimensionality 3
+  cross: (vector) =>
+    B = vector.elements || vector
+    return null if this.elements.length != 3 || B.length != 3
+    A = this.elements
+    return Vector.create([
+      (A[1] * B[2]) - (A[2] * B[1]),
+      (A[2] * B[0]) - (A[0] * B[2]),
+      (A[0] * B[1]) - (A[1] * B[0])
+    ])
+
+  @create: (elements) ->
+    V = new Vector()
+    V.elements = elements
+    return V
+
+class Matrix
+  # Returns element (i,j) of the matrix
+  e: (i,j) =>
+    return null if (i < 1 || i > this.elements.length || j < 1 || j > this.elements[0].length)
+    this.elements[i-1][j-1]
+
+  # Returns a copy of the matrix
+  dup: () =>
+    return Matrix.create(this.elements)
+
+  # Returns the result of multiplying the matrix from the right by the argument.
+  # If the argument is a scalar then just multiply all the elements. If the argument is
+  # a vector, a vector is returned, which saves you having to remember calling
+  # col(1) on the result.
+  multiply: (matrix) =>
+    returnVector = if matrix.modulus then true else false
+    M = matrix.elements || matrix
+    M = Matrix.create(M).elements if (typeof(M[0][0]) == 'undefined')
+    ni = this.elements.length
+    ki = ni
+    kj = M[0].length
+    cols = this.elements[0].length
+    elements = []
+    ni += 1
+    while (--ni)
+      i = ki - ni
+      elements[i] = []
+      nj = kj
+      nj += 1
+      while (--nj)
+        j = kj - nj
+        sum = 0
+        nc = cols
+        nc += 1
+        while (--nc)
+          c = cols - nc
+          sum += this.elements[i][c] * M[c][j]
+        elements[i][j] = sum
+
+    M = Matrix.create(elements)
+    return if returnVector then M.col(1) else M
+
+  # Returns the transpose of the matrix
+  transpose: =>
+    rows = this.elements.length
+    cols = this.elements[0].length
+    elements = []
+    ni = cols
+    ni += 1
+    while (--ni)
+      i = cols - ni
+      elements[i] = []
+      nj = rows
+      nj += 1
+      while (--nj)
+        j = rows - nj
+        elements[i][j] = this.elements[j][i]
+    return Matrix.create(elements)
+
+  # Returns the determinant for square matrices
+  determinant: =>
+    M = this.toRightTriangular()
+    det = M.elements[0][0]
+    n = M.elements.length - 1
+    k = n
+    n += 1
+    while (--n)
+      i = k - n + 1
+      det = det * M.elements[i][i]
+    return det
+
+  # Make the matrix upper (right) triangular by Gaussian elimination.
+  # This method only adds multiples of rows to other rows. No rows are
+  # scaled up or switched, and the determinant is preserved.
+  toRightTriangular: =>
+    M = this.dup()
+    n = this.elements.length
+    k = n
+    kp = this.elements[0].length
+    while (--n)
+      i = k - n
+      if (M.elements[i][i] == 0)
+        for j in [i + 1...k]
+          if (M.elements[j][i] != 0)
+            els = []
+            np = kp
+            np += 1
+            while (--np)
+              p = kp - np
+              els.push(M.elements[i][p] + M.elements[j][p])
+            M.elements[i] = els
+            break
+      if (M.elements[i][i] != 0)
+        for j in [i + 1...k]
+          multiplier = M.elements[j][i] / M.elements[i][i]
+          els = []
+          np = kp
+          np += 1
+          while (--np)
+            p = kp - np
+            # Elements with column numbers up to an including the number
+            # of the row that we're subtracting can safely be set straight to
+            # zero, since that's the point of this routine and it avoids having
+            # to loop over and correct rounding errors later
+            els.push(if p <= i then 0 else M.elements[j][p] - M.elements[i][p] * multiplier)
+          M.elements[j] = els
+    return M
+
+  # Returns the result of attaching the given argument to the right-hand side of the matrix
+  augment: (matrix) =>
+    M = matrix.elements || matrix
+    M = Matrix.create(M).elements if (typeof(M[0][0]) == 'undefined')
+    T = this.dup()
+    cols = T.elements[0].length
+    ni = T.elements.length
+    ki = ni
+    kj = M[0].length
+    return null if (ni != M.length)
+    ni += 1
+    while (--ni)
+      i = ki - ni
+      nj = kj
+      nj += 1
+      while (--nj)
+        j = kj - nj
+        T.elements[i][cols + j] = M[i][j]
+
+    return T
+
+  # Returns the inverse (if one exists) using Gauss-Jordan
+  inverse: =>
+    vni = this.elements.length
+    ki = ni
+    M = this.augment(Matrix.I(ni)).toRightTriangular()
+    kp = M.elements[0].length
+    inverse_elements = []
+    # Matrix is non-singular so there will be no zeros on the diagonal
+    # Cycle through rows from last to first
+    ni += 1
+    while (--ni)
+      i = ni - 1
+      # First, normalise diagonal elements to 1
+      els = []
+      np = kp
+      inverse_elements[i] = []
+      divisor = M.elements[i][i]
+      np += 1
+      while (--np)
+        p = kp - np
+        new_element = M.elements[i][p] / divisor
+        els.push(new_element)
+        # Shuffle of the current row of the right hand side into the results
+        # array as it will not be modified by later runs through this loop
+        if (p >= ki)
+          inverse_elements[i].push(new_element)
+
+      M.elements[i] = els
+      # Then, subtract this row from those above it to
+      # give the identity matrix on the left hand side
+      for j in [0...i]
+        els = []
+        np = kp
+        np += 1
+        while (--np)
+          p = kp - np
+          els.push(M.elements[j][p] - M.elements[i][p] * M.elements[j][i])
+        M.elements[j] = els
+
+    return Matrix.create(inverse_elements)
+
+  @create: (elements) ->
+    M = new Matrix()
+    M.elements = elements
+    return M
+
+  @I = (n) ->
+    els = []
+    k = n
+    n += 1
+    while --n
+      i = k - n
+      els[i] = []
+      nj = k
+      nj += 1
+      while --nj
+        j = k - nj
+        els[i][j] = if (i == j) then 1 else 0
+
+    Matrix.create(els)
+
 # Private Classes
 ## Dynamics
 class Dynamic
@@ -239,7 +464,7 @@ class Bezier extends Dynamic
       i += 1
 
     # Returns y at this specific percent
-    return B(percent).y;
+    return B(percent).y
 
   at: (t) =>
     x = t
@@ -704,7 +929,7 @@ animationFrameApply = (t, args = {}) ->
 
 animationStart = ->
   unless @options.animated
-    @apply(1, { progress: 1 })
+    animationFrameApply.call(@, 1, { progress: 1 })
     return
 
   @animating = true

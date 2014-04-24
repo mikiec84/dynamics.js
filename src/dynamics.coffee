@@ -1,5 +1,7 @@
 # Vector and Matrix extracted from Sylvester.js
 class Vector
+  constructor: (@elements) ->
+
   # Returns element i of the vector
   e: (i) =>
     return if (i < 1 || i > this.elements.length) then null else this.elements[i-1]
@@ -22,18 +24,15 @@ class Vector
     B = vector.elements || vector
     return null if this.elements.length != 3 || B.length != 3
     A = this.elements
-    return Vector.create([
+    return new Vector([
       (A[1] * B[2]) - (A[2] * B[1]),
       (A[2] * B[0]) - (A[0] * B[2]),
       (A[0] * B[1]) - (A[1] * B[0])
     ])
 
-  @create: (elements) ->
-    V = new Vector()
-    V.elements = elements
-    return V
-
 class Matrix
+  constructor: (@elements) ->
+
   # Returns element (i,j) of the matrix
   e: (i,j) =>
     return null if (i < 1 || i > this.elements.length || j < 1 || j > this.elements[0].length)
@@ -41,7 +40,7 @@ class Matrix
 
   # Returns a copy of the matrix
   dup: () =>
-    return Matrix.create(this.elements)
+    return new Matrix(this.elements)
 
   # Returns the result of multiplying the matrix from the right by the argument.
   # If the argument is a scalar then just multiply all the elements. If the argument is
@@ -50,7 +49,7 @@ class Matrix
   multiply: (matrix) =>
     returnVector = if matrix.modulus then true else false
     M = matrix.elements || matrix
-    M = Matrix.create(M).elements if (typeof(M[0][0]) == 'undefined')
+    M = new Matrix(M).elements if (typeof(M[0][0]) == 'undefined')
     ni = this.elements.length
     ki = ni
     kj = M[0].length
@@ -72,7 +71,7 @@ class Matrix
           sum += this.elements[i][c] * M[c][j]
         elements[i][j] = sum
 
-    M = Matrix.create(elements)
+    M = new Matrix(elements)
     return if returnVector then M.col(1) else M
 
   # Returns the transpose of the matrix
@@ -90,7 +89,7 @@ class Matrix
       while (--nj)
         j = rows - nj
         elements[i][j] = this.elements[j][i]
-    return Matrix.create(elements)
+    return new Matrix(elements)
 
   # Returns the determinant for square matrices
   determinant: =>
@@ -144,7 +143,7 @@ class Matrix
   # Returns the result of attaching the given argument to the right-hand side of the matrix
   augment: (matrix) =>
     M = matrix.elements || matrix
-    M = Matrix.create(M).elements if (typeof(M[0][0]) == 'undefined')
+    M = new Matrix(M).elements if (typeof(M[0][0]) == 'undefined')
     T = this.dup()
     cols = T.elements[0].length
     ni = T.elements.length
@@ -201,12 +200,7 @@ class Matrix
           els.push(M.elements[j][p] - M.elements[i][p] * M.elements[j][i])
         M.elements[j] = els
 
-    return Matrix.create(inverse_elements)
-
-  @create: (elements) ->
-    M = new Matrix()
-    M.elements = elements
-    return M
+    return new Matrix(inverse_elements)
 
   @I = (n) ->
     els = []
@@ -221,7 +215,7 @@ class Matrix
         j = k - nj
         els[i][j] = if (i == j) then 1 else 0
 
-    Matrix.create(els)
+    new Matrix(els)
 
 # Private Classes
 ## Dynamics
@@ -546,12 +540,12 @@ normalizeVector = (vector) ->
   newElements = []
   for i, e of vector.elements
     newElements[i] = e / length
-  Vector.create(newElements)
+  new Vector(newElements)
 combineVector = (a, b, ascl, bscl) ->
   result = []
   for i in [0..2]
     result[i] = (ascl * a.elements[i]) + (bscl * b.elements[i])
-  return Vector.create(result)
+  return new Vector(result)
 
 # Matrix tools
 decomposeMatrix = (matrix) ->
@@ -586,7 +580,7 @@ decomposeMatrix = (matrix) ->
   # First, isolate perspective.
   if els[0][3] != 0 || els[1][3] != 0 || els[2][3] != 0
     # rightHandSide is the right hand side of the equation.
-    rightHandSide = Vector.create(els[0..3][3])
+    rightHandSide = new Vector(els[0..3][3])
 
     # Solve the equation by inverting perspectiveMatrix and multiplying
     # rightHandSide by the inverse.
@@ -610,7 +604,7 @@ decomposeMatrix = (matrix) ->
   # Now get scale and shear. 'row' is a 3 element array of 3 component vectors
   row = []
   for i in [0..2]
-    row[i] = Vector.create(els[i][0..2])
+    row[i] = new Vector(els[i][0..2])
 
   # Compute X scale factor and normalize first row.
   scale[0] = lengthVector(row[0])
@@ -778,7 +772,7 @@ recomposeMatrix = (decomposedMatrix) ->
       matrix = matrix.multiply(temp)
 
   # Construct a composite rotation matrix from the quaternion values
-  matrix = matrix.multiply(Matrix.create([[
+  matrix = matrix.multiply(new Matrix([[
     1 - 2 * (y * y + z * z),
     2 * (x * y - z * w),
     2 * (x * z + y * w),
@@ -837,7 +831,7 @@ convertToMatrix3d = (transform) ->
   matrixElements = []
   for i in [0..3]
     matrixElements.push(elements.slice(i * 4,i * 4 + 4))
-  Matrix.create(matrixElements)
+  new Matrix(matrixElements)
 
 # Private Methods
 getFirstFrame = (properties) ->

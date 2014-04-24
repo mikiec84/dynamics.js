@@ -91,18 +91,6 @@ class Matrix
         elements[i][j] = this.elements[j][i]
     return new Matrix(elements)
 
-  # Returns the determinant for square matrices
-  determinant: =>
-    M = this.toRightTriangular()
-    det = M.elements[0][0]
-    n = M.elements.length - 1
-    k = n
-    n += 1
-    while (--n)
-      i = k - n + 1
-      det = det * M.elements[i][i]
-    return det
-
   # Make the matrix upper (right) triangular by Gaussian elimination.
   # This method only adds multiples of rows to other rows. No rows are
   # scaled up or switched, and the determinant is preserved.

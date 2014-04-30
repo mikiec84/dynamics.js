@@ -828,29 +828,44 @@ getFirstFrame = (properties) ->
   frame = {}
   style = window.getComputedStyle(@el, null)
   for k of properties
-    v = @el.style[browserSupportWithPrefix(k)]
-    v = style[browserSupportWithPrefix(k)] unless v
-    frame[k] = v
+    if transformProperties.indexOf(k) != -1
+      k = 'transform'
+    unless frame[k]
+      v = @el.style[browserSupportWithPrefix(k)]
+      v = style[browserSupportWithPrefix(k)] unless v
+      frame[k] = v
   frame
 
 parseFrames = (frames) ->
   newFrames = {}
   for percent, properties of frames
+    transforms = []
     newProperties = {}
     for k, v of properties
-      if k != 'transform'
+      if k == 'transform'
+        transforms.push(v)
+      else if transformProperties.indexOf(k) != -1
+        v = "#{k}(#{v}#{unitFor(k, v)})"
+        transforms.push(v)
+      else
         vString = v + ""
         match = vString.match /([-0-9.]*)(.*)/
         value = parseFloat(match[1])
         unit = match[2]
-      else
-        value = decomposeMatrix(convertToMatrix3d(transformStringToMatrixString(v)))
-        unit = ''
-      newProperties[k] = {
-        value: value,
-        originalValue: v,
-        unit: unit
+        newProperties[k] = {
+          value: value,
+          originalValue: v,
+          unit: unit
+        }
+
+    if transforms.length > 0
+      transform = transforms.join(' ')
+      newProperties['transform'] = {
+        value: decomposeMatrix(convertToMatrix3d(transformStringToMatrixString(transform))),
+        originalValue: transform,
+        unit: ''
       }
+
     newFrames[percent] = newProperties
   newFrames
 
@@ -977,12 +992,34 @@ pxProperties = [
   'top', 'left', 'bottom', 'right',
   'translateX', 'translateY', 'translateZ'
 ]
+degProperties = [
+  'rotate', 'rotateX', 'rotateY', 'rotateZ',
+  'skew', 'skewX', 'skewY', 'skewZ'
+]
+transformProperties = [
+  'translateX', 'translateY', 'translateZ',
+  'scaleX', 'scaleY', 'scaleZ',
+  'rotate', 'rotateX', 'rotateY', 'rotateZ',
+  'skew', 'skewX', 'skewY', 'skewZ',
+  'perspective'
+]
+unitFor = (k, v) ->
+  return '' unless typeof v == 'number'
+  if pxProperties.indexOf(k) != -1
+    return 'px'
+  else if degProperties.indexOf(k) != -1
+    return 'deg'
+  ''
 css = (el, properties) ->
+  transforms = []
   for k, v of properties
-    unit = ''
-    if pxProperties.indexOf(k.toLowerCase()) != -1
-      unit = 'px'
-    el.style[browserSupportWithPrefix(k)] = "#{v}#{unit}"
+    if k == 'transform'
+      transforms.push(v)
+    if transformProperties.indexOf(k) != -1
+      transforms.push("#{k}(#{v}#{unitFor(k, v)})")
+    else
+      el.style[browserSupportWithPrefix(k)] = "#{v}#{unitFor(k, v)}"
+  el.style[browserSupportWithPrefix("transform")] = transforms.join(' ') if transforms.length > 0
 
 # Public Classes
 class Animation

@@ -687,51 +687,53 @@ decomposeMatrix = (matrix) ->
 
   result
 
-interpolateMatrix = (decomposedA, decomposedB, t) ->
+interpolateMatrix = (decomposedA, decomposedB, t, only = []) ->
   # New decomposedMatrix
-  decomposed = {
-    translate: [],
-    scale: [],
-    skew: [],
-    quaternion: [],
-    perspective: []
-  }
+  decomposed = {}
 
   # Linearly interpolate translate, scale, skew and perspective
   for k in [ 'translate', 'scale', 'skew', 'perspective' ]
+    decomposed[k] = []
     for i in [0..decomposedA[k].length-1]
-      decomposed[k][i] = (decomposedB[k][i] - decomposedA[k][i]) * t + decomposedA[k][i]
+      if only.indexOf(k) > -1 or only.indexOf("#{k}#{['x','y','z'][i]}") > -1
+        decomposed[k][i] = (decomposedB[k][i] - decomposedA[k][i]) * t + decomposedA[k][i]
+      else
+        decomposed[k][i] = decomposedA[k][i]
 
-  # Interpolate quaternion
-  qa = decomposedA.quaternion
-  qb = decomposedB.quaternion
+  if only.indexOf('rotate') != -1
+    # Interpolate quaternion
+    qa = decomposedA.quaternion
+    qb = decomposedB.quaternion
 
-  angle = qa[0] * qb[0] + qa[1] * qb[1] + qa[2] * qb[2] + qa[3] * qb[3]
+    angle = qa[0] * qb[0] + qa[1] * qb[1] + qa[2] * qb[2] + qa[3] * qb[3]
 
-  if angle < 0.0
-    for i in [0..3]
-      qa[i] = -qa[i]
-    angle = -angle
+    if angle < 0.0
+      for i in [0..3]
+        qa[i] = -qa[i]
+      angle = -angle
 
-  if angle + 1.0 > .05
-    if 1.0 - angle >= .05
-      th = Math.acos(angle)
-      invth = 1.0 / Math.sin(th)
-      scale = Math.sin(th * (1.0 - t)) * invth
-      invscale = Math.sin(th * t) * invth
+    if angle + 1.0 > .05
+      if 1.0 - angle >= .05
+        th = Math.acos(angle)
+        invth = 1.0 / Math.sin(th)
+        scale = Math.sin(th * (1.0 - t)) * invth
+        invscale = Math.sin(th * t) * invth
+      else
+        scale = 1.0 - t
+        invscale = t
     else
-      scale = 1.0 - t
-      invscale = t
-  else
-    qb[0] = -qa[1]
-    qb[1] = qa[0]
-    qb[2] = -qa[3]
-    qb[3] = qa[2]
-    scale = Math.sin(piDouble * (.5 - t))
-    invscale = Math.sin(piDouble * t)
+      qb[0] = -qa[1]
+      qb[1] = qa[0]
+      qb[2] = -qa[3]
+      qb[3] = qa[2]
+      scale = Math.sin(piDouble * (.5 - t))
+      invscale = Math.sin(piDouble * t)
 
-  for i in [0..3]
-    decomposed.quaternion[i] = qa[i] * scale + qb[i] * invscale
+    decomposed.quaternion = []
+    for i in [0..3]
+      decomposed.quaternion[i] = qa[i] * scale + qb[i] * invscale
+  else
+    decomposed.quaternion = decomposedA.quaternion
 
   return decomposed
 
@@ -846,6 +848,7 @@ parseFrames = (frames) ->
         unit = ''
       newProperties[k] = {
         value: value,
+        originalValue: v,
         unit: unit
       }
     newFrames[percent] = newProperties
@@ -856,7 +859,9 @@ defaultForProperty = (property) ->
   0
 
 animationFrame = (ts) ->
-  return if @stopped
+  if @stopped
+    Loop.remove(@)
+    return
   t = 0
   if @ts
     dTs = ts - @ts
@@ -868,9 +873,8 @@ animationFrame = (ts) ->
 
   animationFrameApply.call(@, at[1], { progress: t })
 
-  if t < 1
-    requestAnimationFrame animationFrame.bind(@)
-  else
+  if t >= 1
+    Loop.remove(@)
     @animating = false
     @dynamic().init()
     @options.complete?(@)
@@ -895,7 +899,7 @@ animationFrameApply = (t, args = {}) ->
         newValue = frame1[k].value
 
     if k == 'transform'
-      newValue ?= interpolateMatrix(frame0[k].value, frame1[k].value, t)
+      newValue ?= interpolateMatrix(frame0[k].value, frame1[k].value, t, @keysToInterpolate)
       matrix = recomposeMatrix(newValue)
       properties['transform'] = matrixToString(matrix)
     else
@@ -918,7 +922,15 @@ animationStart = ->
   @ts = null
   if @stopped
     @stopped = false
-  requestAnimationFrame animationFrame.bind(@)
+  Loop.add(@)
+
+keysForTransform = (transform) ->
+  matches = transform.match(/[a-zA-Z0-9]*\([^)]*\)/g)
+  keys = []
+  if matches?
+    for match in matches
+      keys.push(match.substring(0, match.indexOf('(')))
+  keys
 
 Animations = []
 hasCommonProperties = (props1, props2) ->
@@ -930,11 +942,40 @@ stopAnimationsForEl = (el, properties) ->
     if animation.el == el and hasCommonProperties(animation.to, properties)
       animation.stop()
 
+Loop =
+  animations: []
+  running: false
+  start: ->
+    Loop.running = true
+    requestAnimationFrame(Loop.tick)
+
+  stop: ->
+    Loop.running = false
+
+  tick: (ts) ->
+    return unless Loop.running
+    animations = Loop.animations.slice()
+    for animation in animations
+      animationFrame.call(animation, ts)
+    requestAnimationFrame(Loop.tick)
+
+  add: (animation) ->
+    if Loop.animations.indexOf(animation) == -1
+      Loop.animations.push(animation)
+    if !Loop.running and Loop.animations.length > 0
+      Loop.start()
+
+  remove: (animation) ->
+    Loop.animations.splice(Loop.animations.indexOf(animation), 1)
+    if Loop.running and Loop.animations.length == 0
+      Loop.stop()
+
 # Public Methods
 pxProperties = [
   'marginTop', 'marginLeft', 'marginBottom', 'marginRight',
   'paddingTop', 'paddingLeft', 'paddingBottom', 'paddingRight',
   'top', 'left', 'bottom', 'right',
+  'translateX', 'translateY', 'translateZ'
 ]
 css = (el, properties) ->
   for k, v of properties
@@ -945,8 +986,6 @@ css = (el, properties) ->
 
 # Public Classes
 class Animation
-  @index: 0
-
   constructor: (@el, @to, options = {}) ->
     if window['jQuery'] and @el instanceof jQuery
       @el = @el[0]
@@ -956,6 +995,13 @@ class Animation
       0: getFirstFrame.call(@, @to),
       100: @to
     })
+    @keysToInterpolate = []
+    if @frames[100]['transform']?
+      @keysToInterpolate = keysForTransform(@frames[100]['transform'].originalValue)
+      # Lower case the keys
+      @keysToInterpolate = @keysToInterpolate.map (e) ->
+        e.toLowerCase()
+
     @setOptions(options)
     if @options.debugName and Dynamics.InteractivePanel
       Dynamics.InteractivePanel.addAnimation(@)

@@ -876,7 +876,7 @@ defaultForProperty = (property) ->
 animationFrame = (ts) ->
   if @stopped
     Loop.remove(@)
-    return
+    return {}
   t = 0
   if @ts
     dTs = ts - @ts
@@ -886,7 +886,7 @@ animationFrame = (ts) ->
 
   at = @dynamic().at(t)
 
-  animationFrameApply.call(@, at[1], { progress: t })
+  properties = propertiesAtFrame.call(@, at[1], { progress: t })
 
   if t >= 1
     Loop.remove(@)
@@ -894,7 +894,9 @@ animationFrame = (ts) ->
     @dynamic().init()
     @options.complete?(@)
 
-animationFrameApply = (t, args = {}) ->
+  return properties
+
+propertiesAtFrame = (t, args = {}) ->
   frame0 = @frames[0]
   frame1 = @frames[100]
   progress = args.progress
@@ -915,8 +917,7 @@ animationFrameApply = (t, args = {}) ->
 
     if k == 'transform'
       newValue ?= interpolateMatrix(frame0[k].value, frame1[k].value, t, @keysToInterpolate)
-      matrix = recomposeMatrix(newValue)
-      properties['transform'] = matrixToString(matrix)
+      properties['transform'] = recomposeMatrix(newValue)
     else
       unless newValue
         oldValue = null
@@ -926,11 +927,12 @@ animationFrameApply = (t, args = {}) ->
         newValue = oldValue + (dValue * t)
       properties[k] = newValue
 
-  css(@el, properties)
+  properties
 
 animationStart = ->
   unless @options.animated
-    animationFrameApply.call(@, 1, { progress: 1 })
+    # animationFrameApply.call(@, 1, { progress: 1 })
+    alert('!!! need to do something here')
     return
 
   @animating = true
@@ -961,31 +963,52 @@ Loop =
   animations: []
   running: false
   start: ->
-    Loop.running = true
-    requestAnimationFrame(Loop.tick)
+    @running = true
+    requestAnimationFrame(@tick.bind(@))
 
   stop: ->
-    Loop.running = false
+    @running = false
 
   tick: (ts) ->
-    return unless Loop.running
-    animations = Loop.animations.slice()
+    return unless @running
+    animations = @animations.slice()
+    propertiesByEls = []
+
+    # Find properties of all animations and combine them
     for animation in animations
-      animationFrame.call(animation, ts)
-    requestAnimationFrame(Loop.tick)
+      properties = animationFrame.call(animation, ts)
+      found = false
+      for [el, elProperties] in propertiesByEls
+        if animation.el == el
+          for k, v of properties
+            if k == 'transform' and elProperties[k]
+              v = v.multiply(elProperties[k])
+            elProperties[k] = v
+          found = true
+          break
+      unless found
+        propertiesByEls.push [animation.el, properties]
+
+    # Apply to CSS
+    for [el, properties] in propertiesByEls
+      if properties['transform']?
+        properties['transform'] = matrixToString(properties['transform'])
+      css(el, properties)
+
+    # Request next tick
+    requestAnimationFrame(@tick.bind(@))
 
   add: (animation) ->
-    if Loop.animations.indexOf(animation) == -1
-      Loop.animations.push(animation)
-    if !Loop.running and Loop.animations.length > 0
-      Loop.start()
+    if @animations.indexOf(animation) == -1
+      @animations.push(animation)
+    if !@running and @animations.length > 0
+      @start()
 
   remove: (animation) ->
-    Loop.animations.splice(Loop.animations.indexOf(animation), 1)
-    if Loop.running and Loop.animations.length == 0
-      Loop.stop()
+    # @animations.splice(@animations.indexOf(animation), 1)
+    if @running and @animations.length == 0
+      @stop()
 
-# Public Methods
 pxProperties = [
   'marginTop', 'marginLeft', 'marginBottom', 'marginRight',
   'paddingTop', 'paddingLeft', 'paddingBottom', 'paddingRight',
@@ -1010,6 +1033,8 @@ unitFor = (k, v) ->
   else if degProperties.indexOf(k) != -1
     return 'deg'
   ''
+
+# Public Methods
 css = (el, properties) ->
   transforms = []
   for k, v of properties

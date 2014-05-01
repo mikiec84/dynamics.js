@@ -998,7 +998,7 @@ degProperties = [
 ]
 transformProperties = [
   'translateX', 'translateY', 'translateZ',
-  'scaleX', 'scaleY', 'scaleZ',
+  'scale', 'scaleX', 'scaleY', 'scaleZ',
   'rotate', 'rotateX', 'rotateY', 'rotateZ',
   'skew', 'skewX', 'skewY', 'skewZ',
   'perspective'

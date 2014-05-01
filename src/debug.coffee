@@ -217,8 +217,10 @@ class UIGraph
     if @r
       canvas.width = canvas.width * @r
       canvas.height = canvas.height * @r
-      canvas.style[BrowserSupport.prefixFor('transform-origin') + 'TransformOrigin'] = "0 0"
-      canvas.style[BrowserSupport.prefixFor('transform') + 'Transform'] = 'scale('+(1 / @r)+')'
+      Dynamics.css(canvas, {
+        scale: 1 / @r,
+        'transform-origin': "0 0"
+      })
 
     @canvas.addEventListener 'mousedown', @canvasMouseDown
     @canvas.addEventListener 'mousemove', @canvasMouseMove
@@ -618,10 +620,10 @@ class UIPanel
       document.body.appendChild(@el)
 
   open: =>
-    @el.style.transform = @el.style.MozTransform = @el.style.webkitTransform = 'scale(.7)'
+    Dynamics.css(@el, { scale: 0.7 })
     document.body.appendChild(@el)
     new Dynamics.Animation(@el, {
-      transform: 'scale(1)',
+      scale: 1,
       opacity: 1
     }, {
       type: Dynamics.Types.Spring,
@@ -707,7 +709,7 @@ class UIPanel
   close: =>
     @hidden = true
     new Dynamics.Animation(@el, {
-      transform: 'scale(.1)',
+      scale: 0.1,
       opacity: 0
     }, {
       type: Dynamics.Types.Spring,

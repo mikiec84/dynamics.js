@@ -1103,6 +1103,7 @@ class Animation
     @_dynamic
 
   start: (options = {}) =>
+    options.delay ?= @options.delay
     options.delay ?= 0
     stopAnimationsForEl(@el, @to)
     if options.delay <= 0
@@ -1115,6 +1116,35 @@ class Animation
     @stopped = true
 
 # Export
+class DynamicElement
+  constructor: (el) ->
+    @_el = el
+    @_delay = 0
+    @_animations = []
+
+  css: (to) =>
+    css(@_el, to)
+    @
+
+  to: (to, options = {}) =>
+    options.delay = @_delay
+    @_animations.push(new Dynamics.Animation(@_el, to, options))
+    @
+
+  start: =>
+    for animation in @_animations
+      animation.start()
+    @_animations = []
+    @_delay = 0
+    @
+
+  delay: (delay) =>
+    @_delay += delay
+    @
+
+@dynamic = (el) ->
+  new DynamicElement(el)
+
 Dynamics =
   Animation: Animation
   Types:

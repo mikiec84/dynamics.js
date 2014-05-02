@@ -1024,7 +1024,8 @@ transformProperties = [
   'scale', 'scaleX', 'scaleY', 'scaleZ',
   'rotate', 'rotateX', 'rotateY', 'rotateZ',
   'skew', 'skewX', 'skewY', 'skewZ',
-  'perspective'
+  'perspective',
+  'width', 'height', 'maxWidth', 'maxHeight', 'minWidth', 'minHeight'
 ]
 unitFor = (k, v) ->
   return '' unless typeof v == 'number'

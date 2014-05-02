@@ -511,7 +511,7 @@ browserSupportPrefixFor = cacheFn (property) ->
     if document.body.style[k] != undefined
       return prefix
   ''
-browserSupportWithPrefix = (property) ->
+browserSupportWithPrefix = cacheFn (property) ->
   prefix = browserSupportPrefixFor(property)
   return "#{prefix}#{property.substring(0, 1).toUpperCase() + property.substring(1)}" if prefix == 'Moz'
   return "-#{prefix.toLowerCase()}-#{property}" if prefix != ''
@@ -828,11 +828,11 @@ getFirstFrame = (properties) ->
   frame = {}
   style = window.getComputedStyle(@el, null)
   for k of properties
-    if transformProperties.indexOf(k) != -1
+    if transformProperties.contains(k)
       k = 'transform'
     unless frame[k]
       v = @el.style[browserSupportWithPrefix(k)]
-      v = style[browserSupportWithPrefix(k)] unless v
+      v = style[browserSupportWithPrefix(k)] unless v?
       frame[k] = v
   frame
 
@@ -844,7 +844,7 @@ parseFrames = (frames) ->
     for k, v of properties
       if k == 'transform'
         transforms.push(v)
-      else if transformProperties.indexOf(k) != -1
+      else if transformProperties.contains(k)
         v = "#{k}(#{v}#{unitFor(k, v)})"
         transforms.push(v)
       else
@@ -922,7 +922,7 @@ propertiesAtFrame = (t, args = {}) ->
       unless newValue
         oldValue = null
         oldValue = frame0[k].value if frame0[k]
-        oldValue = defaultForProperty(k) unless oldValue?
+        oldValue = defaultForProperty(k) if !oldValue? or isNaN(oldValue)
         dValue = value - oldValue
         newValue = oldValue + (dValue * t)
       properties[k] = newValue
@@ -1009,29 +1009,39 @@ Loop =
     if @running and @animations.length == 0
       @stop()
 
-pxProperties = [
+set = (array) ->
+  obj = {}
+  for v in array
+    obj[v] = 1
+  {
+    obj: obj,
+    contains: (v) ->
+      return obj[v]?
+  }
+
+pxProperties = set([
   'marginTop', 'marginLeft', 'marginBottom', 'marginRight',
   'paddingTop', 'paddingLeft', 'paddingBottom', 'paddingRight',
   'top', 'left', 'bottom', 'right',
   'translateX', 'translateY', 'translateZ'
-]
-degProperties = [
+])
+degProperties = set([
   'rotate', 'rotateX', 'rotateY', 'rotateZ',
   'skew', 'skewX', 'skewY', 'skewZ'
-]
-transformProperties = [
+])
+transformProperties = set([
   'translateX', 'translateY', 'translateZ',
   'scale', 'scaleX', 'scaleY', 'scaleZ',
   'rotate', 'rotateX', 'rotateY', 'rotateZ',
   'skew', 'skewX', 'skewY', 'skewZ',
   'perspective',
   'width', 'height', 'maxWidth', 'maxHeight', 'minWidth', 'minHeight'
-]
+])
 unitFor = (k, v) ->
   return '' unless typeof v == 'number'
-  if pxProperties.indexOf(k) != -1
+  if pxProperties.contains(k)
     return 'px'
-  else if degProperties.indexOf(k) != -1
+  else if degProperties.contains(k)
     return 'deg'
   ''
 
@@ -1041,7 +1051,7 @@ css = (el, properties) ->
   for k, v of properties
     if k == 'transform'
       transforms.push(v)
-    if transformProperties.indexOf(k) != -1
+    if transformProperties.contains(k)
       transforms.push("#{k}(#{v}#{unitFor(k, v)})")
     else
       el.style[browserSupportWithPrefix(k)] = "#{v}#{unitFor(k, v)}"

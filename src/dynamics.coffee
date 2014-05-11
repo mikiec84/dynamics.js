@@ -873,29 +873,6 @@ defaultForProperty = (property) ->
   return 1 if property == 'opacity'
   0
 
-animationFrame = (ts) ->
-  if @stopped
-    Loop.remove(@)
-    return {}
-  t = 0
-  if @ts
-    dTs = ts - @ts
-    t = dTs / @options.duration
-  else
-    @ts = ts
-
-  at = @dynamic().at(t)
-
-  properties = propertiesAtFrame.call(@, at[1], { progress: t })
-
-  if t >= 1
-    Loop.remove(@)
-    @animating = false
-    @dynamic().init()
-    @options.complete?(@)
-
-  return properties
-
 propertiesAtFrame = (t, args = {}) ->
   frame0 = @frames[0]
   frame1 = @frames[100]
@@ -929,18 +906,6 @@ propertiesAtFrame = (t, args = {}) ->
 
   properties
 
-animationStart = ->
-  unless @options.animated
-    # animationFrameApply.call(@, 1, { progress: 1 })
-    alert('!!! need to do something here')
-    return
-
-  @animating = true
-  @ts = null
-  if @stopped
-    @stopped = false
-  Loop.add(@)
-
 keysForTransform = (transform) ->
   matches = transform.match(/[a-zA-Z0-9]*\([^)]*\)/g)
   keys = []
@@ -960,7 +925,7 @@ stopAnimationsForEl = (el, properties) ->
       animation.stop()
 
 Loop =
-  animations: []
+  tweens: []
   running: false
   start: ->
     @running = true
@@ -971,12 +936,17 @@ Loop =
 
   tick: (ts) ->
     return unless @running
-    animations = @animations.slice()
+    tweens = @tweens.slice()
     propertiesByEls = []
 
+    for tween in tweens
+      tween.tick(ts)
+
     # Find properties of all animations and combine them
-    for animation in animations
-      properties = animationFrame.call(animation, ts)
+    for tween in tweens
+      continue unless tween.animation?
+      animation = tween.animation
+      properties = propertiesAtFrame.call(animation, tween.value, { progress: tween.t })
       found = false
       for [el, elProperties] in propertiesByEls
         if animation.el == el
@@ -998,15 +968,15 @@ Loop =
     # Request next tick
     requestAnimationFrame(@tick.bind(@))
 
-  add: (animation) ->
-    if @animations.indexOf(animation) == -1
-      @animations.push(animation)
-    if !@running and @animations.length > 0
+  add: (tween) ->
+    if @tweens.indexOf(tween) == -1
+      @tweens.push(tween)
+    if !@running and @tweens.length > 0
       @start()
 
-  remove: (animation) ->
-    # @animations.splice(@animations.indexOf(animation), 1)
-    if @running and @animations.length == 0
+  remove: (tween) ->
+    # @tweens.splice(@tweens.indexOf(tween), 1)
+    if @running and @tweens.length == 0
       @stop()
 
 set = (array) ->
@@ -1088,28 +1058,28 @@ class Animation
     @options.complete ?= null
     @options.type ?= Linear
     @options.animated ?= true
-    @returnsToSelf = false || @dynamic().returnsToSelf
-    @_dynamic = null
 
     if @options.debugName? and Dynamics.Overrides? and Dynamics.Overrides.for(@options.debugName)
       @options = Dynamics.Overrides.getOverride(@options, @options.debugName)
 
+    @tween = new Tween(@options)
+    @tween.animation = @
     @dynamic().init()
+    @returnsToSelf = false || @dynamic().returnsToSelf
 
     optionsChanged?()
 
   dynamic: =>
-    @_dynamic ?= new @options.type(@options)
-    @_dynamic
+    @tween.dynamic
 
   start: (options = {}) =>
     options.delay ?= @options.delay
     options.delay ?= 0
     stopAnimationsForEl(@el, @to)
     if options.delay <= 0
-      animationStart.call(@)
+      @tween.start()
     else
-      setTimeout animationStart.bind(@), options.delay
+      setTimeout @tween.start.bind(@tween), options.delay
 
   stop: =>
     @animating = false
@@ -1142,6 +1112,41 @@ class DynamicElement
     @_delay += delay
     @
 
+class Tween
+  constructor: (@options) ->
+    @dynamic = new @options.type(@options)
+
+  start: =>
+    @animating = true
+    @stopped = false
+    @ts = null
+    Loop.add(@)
+
+  stop: =>
+    @animating = false
+    @stopped = true
+    Loop.remove(@)
+
+  tick: (ts) =>
+    if @stopped
+      Loop.remove(@)
+      return
+
+    @t = 0
+    if @ts
+      dTs = ts - @ts
+      @t = dTs / @options.duration
+    else
+      @ts = ts
+
+    @value = @dynamic.at(@t)[1]
+    @options.change?(@t, @value)
+
+    if @t >= 1
+      Loop.remove(@)
+      @stopped = true
+      @animating = false
+
 @dynamic = (el) ->
   new DynamicElement(el)
 
@@ -1155,6 +1160,7 @@ Dynamics =
     Linear: Linear
     Bezier: Bezier
     EaseInOut: EaseInOut
+  Tween: Tween
   css: css
 
 try

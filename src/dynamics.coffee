@@ -826,13 +826,17 @@ convertToMatrix3d = (transform) ->
 # Private Methods
 getFirstFrame = (properties) ->
   frame = {}
-  style = window.getComputedStyle(@el, null)
-  for k of properties
-    if transformProperties.contains(k)
-      k = 'transform'
-    unless frame[k]
-      v = @el.style[browserSupportWithPrefix(k)]
-      v = style[browserSupportWithPrefix(k)] unless v?
+  if @el.style?
+    style = window.getComputedStyle(@el, null)
+    for k of properties
+      if transformProperties.contains(k)
+        k = 'transform'
+      unless frame[k]
+        v = @el.style[browserSupportWithPrefix(k)]
+        v = style[browserSupportWithPrefix(k)] unless v?
+        frame[k] = v
+  else
+    for k, v of @el
       frame[k] = v
   frame
 
@@ -963,7 +967,11 @@ Loop =
     for [el, properties] in propertiesByEls
       if properties['transform']?
         properties['transform'] = matrixToString(properties['transform'])
-      css(el, properties)
+      if el.style
+        css(el, properties)
+      else
+        for k, v of properties
+          el[k] = v
 
     # Request next tick
     requestAnimationFrame(@tick.bind(@))
@@ -1098,7 +1106,7 @@ class DynamicElement
 
   to: (to, options = {}) =>
     options.delay = @_delay
-    @_animations.push(new Dynamics.Animation(@_el, to, options))
+    @_animations.push(new Animation(@_el, to, options))
     @
 
   start: =>
@@ -1147,26 +1155,21 @@ class Tween
       @stopped = true
       @animating = false
 
-@dynamic = (el) ->
+dynamic = (el) ->
   new DynamicElement(el)
 
-Dynamics =
-  Animation: Animation
-  Types:
-    Spring: Spring
-    SelfSpring: SelfSpring
-    Gravity: Gravity
-    GravityWithForce: GravityWithForce
-    Linear: Linear
-    Bezier: Bezier
-    EaseInOut: EaseInOut
-  Tween: Tween
-  css: css
+dynamic.Spring = Spring
+dynamic.SelfSpring = SelfSpring
+dynamic.Gravity = Gravity
+dynamic.GravityWithForce = GravityWithForce
+dynamic.Linear = Linear
+dynamic.Bezier = Bezier
+dynamic.EaseInOut = EaseInOut
 
 try
   if module
-    module.exports = Dynamics
+    module.exports = dynamic
   else
-    @Dynamics = Dynamics
+    @dynamic = dynamic
 catch e
-  @Dynamics = Dynamics
+  @dynamic = dynamic

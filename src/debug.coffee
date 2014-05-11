@@ -217,7 +217,7 @@ class UIGraph
     if @r
       canvas.width = canvas.width * @r
       canvas.height = canvas.height * @r
-      Dynamics.css(canvas, {
+      dynamic(canvas).css({
         scale: 1 / @r,
         'transform-origin': "0 0"
       })
@@ -594,7 +594,7 @@ class UIPanel
     @el.appendChild(contentEl)
 
     @dynamicsClasses = []
-    for k, v of Dynamics.Types
+    for k, v of [dynamic.Spring, dynamic.SelfSpring, dynamic.Gravity, dynamic.GravityWithForce, dynamic.Linear, dynamic.Bezier, dynamic.EaseInOut]
       @dynamicsClasses.push v
 
     @currentCircle = null
@@ -603,7 +603,7 @@ class UIPanel
       if aDynamicsClass.name == @options.type
         @dynamicsClass = aDynamicsClass
       option = document.createElement('option')
-      option.innerHTML = "Dynamics.Types.#{getName(aDynamicsClass)}"
+      option.innerHTML = "dynamic.#{getName(aDynamicsClass)}"
       option.value = getName(aDynamicsClass)
       @select.appendChild option
     @select.addEventListener 'change', @selectDidChange
@@ -620,13 +620,13 @@ class UIPanel
       document.body.appendChild(@el)
 
   open: =>
-    Dynamics.css(@el, { scale: 0.7 })
+    dynamic(@el).css({ scale: 0.7 })
     document.body.appendChild(@el)
-    new Dynamics.Animation(@el, {
+    dynamic(@el).to({
       scale: 1,
       opacity: 1
     }, {
-      type: Dynamics.Types.Spring,
+      type: dynamic.Spring,
       frequency: 6,
       friction: 130,
       anticipationStrength: 0,
@@ -642,7 +642,7 @@ class UIPanel
 
   selectDidChange: =>
     name = @select.options[@select.selectedIndex].value
-    @dynamicsClass = eval("Dynamics.Types.#{name}")
+    @dynamicsClass = eval("dynamic.#{name}")
     @updateOptions()
     @update()
 
@@ -708,11 +708,11 @@ class UIPanel
 
   close: =>
     @hidden = true
-    new Dynamics.Animation(@el, {
+    dynamic(@el).to({
       scale: 0.1,
       opacity: 0
     }, {
-      type: Dynamics.Types.Spring,
+      type: dynamic.Spring,
       frequency: 6,
       friction: 130,
       anticipationStrength: 0,
